@@ -18,6 +18,7 @@ from utils.utilities import fixed_unigram_candidate_sampler
 
 class DySAT(nn.Module):
     def __init__(self, args, num_features, time_length):
+        torch.nn.BCELoss()
         """[summary]
 
         Args:
@@ -26,21 +27,27 @@ class DySAT(nn.Module):
         """
         super(DySAT, self).__init__()
         self.args = args
+        # args.window为时间自注意力的窗口, 一次取一个窗口长度(未设置则取全部)做self-attention
         if args.window < 0:
             self.num_time_steps = time_length
         else:
             self.num_time_steps = min(time_length, args.window + 1)  # window = 0 => only self.
+        # 节点的特征维度
         self.num_features = num_features
-
-        self.structural_head_config = list(map(int, args.structural_head_config.split(",")))
+        # 结构的多头信息
+        self.structural_head_config = list(map(int, args.structural_head_config.split(",")))  # [16, 8, 8]
+        # 结构layer层信息
         self.structural_layer_config = list(map(int, args.structural_layer_config.split(",")))
-        self.temporal_head_config = list(map(int, args.temporal_head_config.split(",")))
-        self.temporal_layer_config = list(map(int, args.temporal_layer_config.split(",")))
+        # 时序多头信息
+        self.temporal_head_config = list(map(int, args.temporal_head_config.split(",")))  # [16]
+        # 时序layer信息
+        self.temporal_layer_config = list(map(int, args.temporal_layer_config.split(",")))  # [128]
+        # 空间时间的droupout层
         self.spatial_drop = args.spatial_drop
         self.temporal_drop = args.temporal_drop
-
+        # 空间时间的自注意力模型
         self.structural_attn, self.temporal_attn = self.build_model()
-
+        # 定义loss
         self.bceloss = BCEWithLogitsLoss()
 
     def forward(self, graphs):
@@ -70,20 +77,23 @@ class DySAT(nn.Module):
         input_dim = self.num_features
 
         # 1: Structural Attention Layers
+        # 添加结构注意力层
         structural_attention_layers = nn.Sequential()
-        for i in range(len(self.structural_layer_config)):
-            layer = StructuralAttentionLayer(input_dim=input_dim,
-                                             output_dim=self.structural_layer_config[i],
-                                             n_heads=self.structural_head_config[i],
-                                             attn_drop=self.spatial_drop,
-                                             ffd_drop=self.spatial_drop,
-                                             residual=self.args.residual)
+        for i in range(len(self.structural_layer_config)):  # 遍历每层结构信息
+            layer = StructuralAttentionLayer(input_dim=input_dim,  # 特征长度(维度)
+                                             output_dim=self.structural_layer_config[i],  # output维度
+                                             n_heads=self.structural_head_config[i],  # 多头参数
+                                             attn_drop=self.spatial_drop,  # droupdout
+                                             ffd_drop=self.spatial_drop,  # 同上
+                                             residual=self.args.residual)  # 残差连接
             structural_attention_layers.add_module(name="structural_layer_{}".format(i), module=layer)
-            input_dim = self.structural_layer_config[i]
+            input_dim = self.structural_layer_config[i] #层级之间output与input维度匹配
         
         # 2: Temporal Attention Layers
-        input_dim = self.structural_layer_config[-1]
+        # 添加时序注意力层
+        input_dim = self.structural_layer_config[-1]  # 维度与注意力层最后一级output一致
         temporal_attention_layers = nn.Sequential()
+        # 同结构注意力层
         for i in range(len(self.temporal_layer_config)):
             layer = TemporalAttentionLayer(input_dim=input_dim,
                                            n_heads=self.temporal_head_config[i],

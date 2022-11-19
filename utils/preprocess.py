@@ -53,8 +53,7 @@ def create_data_splits(graph, next_graph, val_mask_fraction=0.2, test_mask_fract
         if graph.has_node(e[0]) and graph.has_node(e[1]):
             edges_positive.append(e)
     edges_positive = np.array(edges_positive) # [E, 2]
-    # 组合得到len(edges_positive)个不存在于t2时刻图的边信息
-    # ????为什么
+    # 进行负采样
     edges_negative = negative_sample(edges_positive, graph.number_of_nodes(), next_graph)
     
     # 划分训练集\测试集\验证集
@@ -67,6 +66,7 @@ def create_data_splits(graph, next_graph, val_mask_fraction=0.2, test_mask_fract
             
 def negative_sample(edges_pos, nodes_num, next_graph):
     edges_neg = []
+    # 组合得到len(edges_positive)个不存在于t2时刻图的边信息
     while len(edges_neg) < len(edges_pos):
         # 随意取两个点下标
         idx_i = np.random.randint(0, nodes_num)
