@@ -1,6 +1,6 @@
 
 import numpy as np
-import dill
+# import dill
 import pickle as pkl
 import networkx as nx
 import scipy.sparse as sp
@@ -22,14 +22,19 @@ def get_context_pairs(graphs, adjs):
     """ Load/generate context pairs for each snapshot through random walk sampling."""
     print("Computing training pairs ...")
     context_pairs_train = []
+    # 取随机节点
     for i in range(len(graphs)):
         context_pairs_train.append(run_random_walks_n2v(graphs[i], adjs[i], num_walks=10, walk_len=20))
 
     return context_pairs_train
 
 def get_evaluation_data(graphs):
-    """ Load train/val/test examples to evaluate link prediction performance"""
+    """ 
+    评估连接预测的表现
+    Load train/val/test examples to evaluate link prediction performance
+    """
     eval_idx = len(graphs) - 2
+    # 获取最后两张图(最后两个时间帧的图)对应的信息
     eval_graph = graphs[eval_idx]
     next_graph = graphs[eval_idx+1]
     print("Generating eval data ....")
@@ -40,15 +45,19 @@ def get_evaluation_data(graphs):
     return train_edges, train_edges_false, val_edges, val_edges_false, test_edges, test_edges_false
 
 def create_data_splits(graph, next_graph, val_mask_fraction=0.2, test_mask_fraction=0.6):
+    # 获取t2时刻全部边信息
     edges_next = np.array(list(nx.Graph(next_graph).edges()))
+    # 记录t2的边,且边上的点非新添加的点(存在于t1时刻)
     edges_positive = []   # Constraint to restrict new links to existing nodes.
     for e in edges_next:
         if graph.has_node(e[0]) and graph.has_node(e[1]):
             edges_positive.append(e)
     edges_positive = np.array(edges_positive) # [E, 2]
+    # 组合得到len(edges_positive)个不存在于t2时刻图的边信息
+    # ????为什么
     edges_negative = negative_sample(edges_positive, graph.number_of_nodes(), next_graph)
     
-
+    # 划分训练集\测试集\验证集
     train_edges_pos, test_pos, train_edges_neg, test_neg = train_test_split(edges_positive, 
             edges_negative, test_size=val_mask_fraction+test_mask_fraction)
     val_edges_pos, test_edges_pos, val_edges_neg, test_edges_neg = train_test_split(test_pos, 
@@ -59,12 +68,15 @@ def create_data_splits(graph, next_graph, val_mask_fraction=0.2, test_mask_fract
 def negative_sample(edges_pos, nodes_num, next_graph):
     edges_neg = []
     while len(edges_neg) < len(edges_pos):
+        # 随意取两个点下标
         idx_i = np.random.randint(0, nodes_num)
         idx_j = np.random.randint(0, nodes_num)
+        # 如果两点在t2时刻构成一条边,跳过
         if idx_i == idx_j:
             continue
         if next_graph.has_edge(idx_i, idx_j) or next_graph.has_edge(idx_j, idx_i):
             continue
+        # 边存在于记录中,跳过
         if edges_neg:
             if [idx_i, idx_j] in edges_neg or [idx_j, idx_i] in edges_neg:
                 continue

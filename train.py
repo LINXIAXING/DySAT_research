@@ -32,7 +32,9 @@ def inductive_graph(graph_former, graph_later):
         graph_later ([type]): [description]
     """
     newG = nx.MultiGraph()
+    # 添加t2时刻节点(包含额外信息)
     newG.add_nodes_from(graph_later.nodes(data=True))
+    # 添加t1时刻边信息(不包含额外信息)
     newG.add_edges_from(graph_former.edges(data=False))
     return newG
 
@@ -97,6 +99,8 @@ if __name__ == "__main__":
     print(args)
 
     #graphs, feats, adjs = load_graphs(args.dataset)
+    # 加载图数据,返回的graph是一个图列表
+    # 图数据中的边为由数个1 * 3的tuple组成的list, tuple第三个值表示权重
     graphs, adjs = load_graphs(args.dataset)
     if args.featureless == True:
         feats = [scipy.sparse.identity(adjs[args.time_steps - 1].shape[0]).tocsr()[range(0, x.shape[0]), :] for x in adjs if
@@ -108,6 +112,7 @@ if __name__ == "__main__":
     context_pairs_train = get_context_pairs(graphs, adjs)
 
     # Load evaluation data for link prediction.
+    # 将最后两张图的边信息化为训练集\测试集\验证集
     train_edges_pos, train_edges_neg, val_edges_pos, val_edges_neg, \
         test_edges_pos, test_edges_neg = get_evaluation_data(graphs)
     print("No. Train: Pos={}, Neg={} \nNo. Val: Pos={}, Neg={} \nNo. Test: Pos={}, Neg={}".format(
@@ -116,6 +121,8 @@ if __name__ == "__main__":
 
     # Create the adj_train so that it includes nodes from (t+1) but only edges from t: this is for the purpose of
     # inductive testing.
+    # 组合包含t1边和t2时刻点的multi graph
+    # 相当于把t2图的edges全部替换为上一时间帧的edges
     new_G = inductive_graph(graphs[args.time_steps-2], graphs[args.time_steps-1])
     graphs[args.time_steps-1] = new_G
     adjs[args.time_steps-1] = nx.adjacency_matrix(new_G)
