@@ -119,7 +119,7 @@ class MyDataset(Dataset):
     @staticmethod
     def collate_fn(samples):
         batch_dict = {}
-        for key in ["node_1", "node_2", "node_2_neg"]:
+        for key in ["node_1", "node_2", "node_2_neg"]: # 对应着 节点/节点的上下文正采样节点/节点的上下文负采样节点
             data_list = []
             for sample in samples:
                 data_list.append(sample[key])
@@ -128,7 +128,7 @@ class MyDataset(Dataset):
                 concate.append(torch.cat([data[t] for data in data_list]))
             batch_dict[key] = concate
         batch_dict["graphs"] = samples[0]["graphs"]
-        return batch_dict
+        return batch_dict  # 返回每个类别下,每个时间步骤的节点
 
 
     

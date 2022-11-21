@@ -52,7 +52,7 @@ def create_data_splits(graph, next_graph, val_mask_fraction=0.2, test_mask_fract
     for e in edges_next:
         if graph.has_node(e[0]) and graph.has_node(e[1]):
             edges_positive.append(e)
-    edges_positive = np.array(edges_positive) # [E, 2]
+    edges_positive = np.array(edges_positive) # [E, 2] e表示边数量,2表示边连接的俩个点
     # 进行负采样
     edges_negative = negative_sample(edges_positive, graph.number_of_nodes(), next_graph)
     

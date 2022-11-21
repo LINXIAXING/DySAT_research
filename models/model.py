@@ -106,6 +106,7 @@ class DySAT(nn.Module):
         return structural_attention_layers, temporal_attention_layers
 
     def get_loss(self, feed_dict):
+        # 对应着 节点 / 节点的上下文正采样节点 / 节点的上下文负采样节点, 与图信息
         node_1, node_2, node_2_negative, graphs = feed_dict.values()
         # run gnn
         final_emb = self.forward(graphs) # [N, T, F]
