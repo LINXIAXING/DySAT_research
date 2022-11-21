@@ -14,6 +14,7 @@ import pickle as pkl
 import scipy
 from torch.utils.data import DataLoader
 
+from utils.mylogging import LoggingWriter
 from utils.preprocess import load_graphs, get_context_pairs, get_evaluation_data
 from utils.minibatch import  MyDataset
 from utils.utilities import to_device
@@ -128,7 +129,9 @@ if __name__ == "__main__":
     adjs[args.time_steps-1] = nx.adjacency_matrix(new_G)
 
     # build dataloader and model
-    device = torch.device("cuda:0")
+    # device = torch.device("cuda:0")
+    device = torch.device("cpu")
+
     dataset = MyDataset(args, graphs, feats, adjs, context_pairs_train)
     dataloader = DataLoader(dataset, 
                             batch_size=args.batch_size, 
@@ -139,16 +142,22 @@ if __name__ == "__main__":
     model = DySAT(args, feats[0].shape[1], args.time_steps).to(device)
     opt = torch.optim.AdamW(model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
 
+    # logging
+    writer = LoggingWriter()
     # in training
     best_epoch_val = 0
     patient = 0
+    # 进行args.epochs轮训练
     for epoch in range(args.epochs):
         model.train()
         epoch_loss = []
         for idx, feed_dict in enumerate(dataloader):
+            # 节点信息(转换为CPU/GPU)
             feed_dict = to_device(feed_dict, device)
             opt.zero_grad()
             loss = model.get_loss(feed_dict)
+            # record loss
+            writer.summary_loss(loss=loss, epoch=epoch, global_step=epoch * len(dataloader) + idx)
             loss.backward()
             opt.step()
             epoch_loss.append(loss.item())
@@ -179,6 +188,9 @@ if __name__ == "__main__":
                                                                 np.mean(epoch_loss),
                                                                 epoch_auc_val, 
                                                                 epoch_auc_test))
+    # record global loss
+    writer.summary_global_loss()
+
     # Test Best Model
     model.load_state_dict(torch.load("./model_checkpoints/model.pt"))
     model.eval()
@@ -194,7 +206,7 @@ if __name__ == "__main__":
     auc_val = val_results["HAD"][1]
     auc_test = test_results["HAD"][1]
     print("Best Test AUC = {:.3f}".format(auc_test))
-
+    writer.summary_action()
 
                 
 
